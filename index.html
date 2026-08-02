@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2017 Cars: Fuel Economy Story</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1>How Fuel Type and Engine Size Shape 2017 Car Efficiency</h1>
+      <p class="subtitle">
+        An interactive slideshow exploring EPA average MPG across 146 vehicle configurations.
+      </p>
+    </header>
+
+    <nav class="slideshow-nav" aria-label="Story navigation">
+      <button id="prevBtn" type="button">← Previous</button>
+      <div id="stepIndicators" class="step-indicators"></div>
+      <button id="nextBtn" type="button">Next →</button>
+    </nav>
+
+    <section class="scene-panel">
+      <div class="scene-header">
+        <p class="scene-label" id="sceneLabel">Scene 1 of 3</p>
+        <h2 id="sceneTitle"></h2>
+        <p id="sceneDescription" class="scene-description"></p>
+      </div>
+
+      <div class="controls" id="controls"></div>
+
+      <div class="chart-wrap">
+        <svg id="chart"></svg>
+        <div id="tooltip" class="tooltip" hidden></div>
+      </div>
+
+      <p class="hint" id="interactionHint"></p>
+    </section>
+
+    <footer class="footer">
+      <p>
+        Data: 2017 automobile MPG summary (Make, Fuel, EngineCylinders, AverageHighwayMPG, AverageCityMPG).
+        Built with D3.js for CS 416.
+      </p>
+    </footer>
+  </div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
