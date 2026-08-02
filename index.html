@@ -12,7 +12,7 @@
     <header class="header">
       <h1>How Fuel Type and Engine Size Shape 2017 Car Efficiency</h1>
       <p class="subtitle">
-        An interactive slideshow exploring EPA average MPG across 146 vehicle configurations.
+        Fuel type creates the largest efficiency gap, while more cylinders generally reduce fuel economy among gasoline and diesel vehicles.
       </p>
     </header>
 
@@ -34,14 +34,18 @@
       <div class="chart-wrap">
         <svg id="chart"></svg>
         <div id="tooltip" class="tooltip" hidden></div>
+        <div id="emptyState" class="empty-state" hidden></div>
       </div>
 
+      <div id="takeaway" class="takeaway" hidden></div>
       <p class="hint" id="interactionHint"></p>
     </section>
 
     <footer class="footer">
       <p>
-        Data: 2017 automobile MPG summary (Make, Fuel, EngineCylinders, AverageHighwayMPG, AverageCityMPG).
+        Data source: 2017 automobile efficiency dataset. Each row represents one make–fuel–cylinder configuration.
+        Scene 1 shows the unweighted average across configuration rows.
+        Gasoline and diesel values are reported in MPG; electric vehicle values are reported in MPGe.
         Built with D3.js for CS 416.
       </p>
     </footer>

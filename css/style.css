@@ -6,6 +6,7 @@
   --border: #d9dee7;
   --accent: #2f6fed;
   --accent-soft: #e8f0ff;
+  --control-bg: #f7f9fc;
   --gasoline: #4c78a8;
   --diesel: #f58518;
   --electricity: #54a24b;
@@ -39,7 +40,7 @@ body {
 .subtitle {
   margin: 0;
   color: var(--muted);
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .slideshow-nav {
@@ -49,7 +50,7 @@ body {
   margin: 20px 0 14px;
 }
 
-.slideshow-nav button {
+.slideshow-nav > button {
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
@@ -57,14 +58,15 @@ body {
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.95rem;
+  flex-shrink: 0;
 }
 
-.slideshow-nav button:hover:not(:disabled) {
+.slideshow-nav > button:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
-.slideshow-nav button:disabled {
+.slideshow-nav > button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -74,17 +76,30 @@ body {
   gap: 8px;
   flex: 1;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .step-btn {
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--muted);
-  width: 34px;
+  min-width: 34px;
   height: 34px;
-  border-radius: 50%;
+  padding: 0 10px;
+  border-radius: 17px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.step-btn .step-num {
+  display: inline;
+}
+
+.step-btn .step-label {
+  display: none;
+  font-weight: 500;
 }
 
 .step-btn.active {
@@ -127,6 +142,10 @@ body {
   align-items: center;
   margin: 14px 0 8px;
   min-height: 36px;
+  background: var(--control-bg);
+  border: 1px solid #e3e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .controls label {
@@ -136,7 +155,8 @@ body {
 }
 
 .fuel-btn,
-.metric-btn {
+.metric-btn,
+.reset-btn {
   border: 1px solid var(--border);
   background: #fff;
   color: var(--text);
@@ -152,6 +172,23 @@ body {
   background: var(--accent-soft);
   color: #1849a9;
   font-weight: 600;
+}
+
+.reset-btn {
+  margin-left: auto;
+  border-color: #b8c0cc;
+}
+
+.reset-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.filter-status {
+  font-size: 0.88rem;
+  color: var(--muted);
+  width: 100%;
+  margin: 0;
 }
 
 .controls select {
@@ -185,6 +222,43 @@ body {
   max-width: 240px;
   z-index: 5;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.88);
+  font-size: 0.95rem;
+  z-index: 4;
+}
+
+.empty-state[hidden] {
+  display: none;
+}
+
+.takeaway {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: #f3f7ff;
+  border: 1px solid #d5e2fb;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.takeaway[hidden] {
+  display: none;
+}
+
+.takeaway strong {
+  color: #1849a9;
 }
 
 .hint {
@@ -232,6 +306,23 @@ body {
   fill: none;
 }
 
+@media (min-width: 701px) {
+  .step-btn {
+    height: auto;
+    min-height: 34px;
+    padding: 6px 12px;
+    border-radius: 18px;
+  }
+
+  .step-btn .step-label {
+    display: inline;
+  }
+
+  .step-btn .step-num::after {
+    content: " ";
+  }
+}
+
 @media (max-width: 700px) {
   .header h1 {
     font-size: 1.35rem;
@@ -243,5 +334,13 @@ body {
 
   .slideshow-nav {
     flex-wrap: wrap;
+  }
+
+  .reset-btn {
+    margin-left: 0;
+  }
+
+  .annotation-text {
+    font-size: 11px;
   }
 }

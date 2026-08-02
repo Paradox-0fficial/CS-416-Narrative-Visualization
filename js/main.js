@@ -5,7 +5,7 @@
 const params = {
   sceneIndex: 0,
   metric: "highway", // "highway" | "city"
-  selectedFuel: "All", // All | Gasoline | Diesel | Electricity
+  selectedFuel: "All",
   selectedMake: "All"
 };
 
@@ -15,31 +15,9 @@ const fuelColors = {
   Electricity: "#54a24b"
 };
 
-const scenes = [
-  {
-    id: "fuel-overview",
-    title: "Fuel Type Sets the Efficiency Baseline",
-    description:
-      "Electric vehicles average far higher MPG-equivalent than gasoline or diesel across the 2017 EPA summary.",
-    hint: "Hover bars for exact averages. Use the metric buttons to switch Highway / City MPG. Then click Next."
-  },
-  {
-    id: "cylinders-trend",
-    title: "More Cylinders Usually Mean Lower MPG",
-    description:
-      "Among gasoline and diesel cars, highway MPG trends downward as engine cylinder count rises. Electric cars sit at 0 cylinders with the highest values.",
-    hint: "Filter by fuel type to isolate trends. Hover points for make and MPG details."
-  },
-  {
-    id: "explore-scatter",
-    title: "Explore City vs Highway Efficiency",
-    description:
-      "Compare configurations freely: city and highway MPG move together, while fuel type separates the clusters.",
-    hint: "Filter by fuel and brand, then hover any point. Use Previous / scene numbers to revisit earlier story steps."
-  }
-];
+const stepLabels = ["Fuel Types", "Engine Size", "Explore"];
 
-const margin = { top: 36, right: 28, bottom: 52, left: 58 };
+const margin = { top: 36, right: 28, bottom: 52, left: 62 };
 let data = [];
 let width = 900;
 let height = 460;
@@ -51,7 +29,40 @@ const metricAccessor = (d) =>
   params.metric === "city" ? d.AverageCityMPG : d.AverageHighwayMPG;
 
 const metricLabel = () =>
-  params.metric === "city" ? "Average City MPG" : "Average Highway MPG";
+  params.metric === "city" ? "City MPG / MPGe" : "Highway MPG / MPGe";
+
+const metricShort = () =>
+  params.metric === "city" ? "City" : "Highway";
+
+function sceneTwoDescription() {
+  const metricText =
+    params.metric === "city" ? "city efficiency" : "highway efficiency";
+  return `Among gasoline and diesel vehicles, ${metricText} generally decreases as engine cylinder count rises. Electric cars sit at 0 cylinders with the highest values.`;
+}
+
+function getSceneMeta() {
+  if (params.sceneIndex === 0) {
+    return {
+      title: "Fuel Type Sets the Efficiency Baseline",
+      description:
+        "Electric vehicles average far higher MPG / MPGe than gasoline or diesel across the 2017 configuration summary.",
+      hint: "Hover bars for exact averages. Use Efficiency metric to switch Highway / City. Then click Next."
+    };
+  }
+  if (params.sceneIndex === 1) {
+    return {
+      title: "Among Combustion Vehicles, More Cylinders Usually Mean Lower MPG",
+      description: sceneTwoDescription(),
+      hint: "Filter by fuel type to isolate trends. Hover points for make and MPG / MPGe details."
+    };
+  }
+  return {
+    title: "Explore City vs Highway Efficiency",
+    description:
+      "Compare configurations freely: city and highway values move together, while fuel type separates the clusters.",
+    hint: "Filter by fuel and brand, then hover any point. Use Reset Filters to return to the full dataset."
+  };
+}
 
 function filteredData() {
   return data.filter((d) => {
@@ -63,49 +74,86 @@ function filteredData() {
   });
 }
 
+function isNarrow() {
+  return width < 700;
+}
+
 function clearChart() {
   svg.selectAll("*").remove();
   tooltip.attr("hidden", true);
+  d3.select("#emptyState").attr("hidden", true).text("");
 }
 
 function chartSize() {
   const wrap = document.querySelector(".chart-wrap");
   width = wrap.clientWidth || 900;
-  height = 460;
+  height = isNarrow() ? 400 : 460;
   svg.attr("viewBox", `0 0 ${width} ${height}`);
 }
 
+function fadeIn(g) {
+  g.attr("opacity", 0)
+    .transition()
+    .duration(350)
+    .attr("opacity", 1);
+}
+
 function showTooltip(event, html) {
+  const wrap = document.querySelector(".chart-wrap");
+  const tipW = 220;
+  let left = event.offsetX + 14;
+  let top = event.offsetY + 10;
+  if (left + tipW > wrap.clientWidth) left = event.offsetX - tipW - 8;
+  if (top + 80 > wrap.clientHeight) top = event.offsetY - 70;
+
   tooltip
     .html(html)
     .attr("hidden", null)
-    .style("left", `${event.offsetX + 14}px`)
-    .style("top", `${event.offsetY + 10}px`);
+    .style("left", `${Math.max(4, left)}px`)
+    .style("top", `${Math.max(4, top)}px`);
 }
 
 function hideTooltip() {
   tooltip.attr("hidden", true);
 }
 
+function bindDotHover(selection, htmlFn) {
+  selection
+    .on("mouseenter", function (event, d) {
+      d3.select(this).attr("r", 8).attr("stroke-width", 2);
+      showTooltip(event, htmlFn(d));
+    })
+    .on("mousemove", function (event, d) {
+      showTooltip(event, htmlFn(d));
+    })
+    .on("mouseleave", function () {
+      d3.select(this).attr("r", 5.5).attr("stroke-width", 1);
+      hideTooltip();
+    });
+}
+
 /** Shared annotation template: dashed leader + rounded label box */
 function drawAnnotation(g, { x1, y1, x2, y2, lines, boxWidth }) {
-  const lineHeight = 15;
+  const lineHeight = isNarrow() ? 13 : 15;
   const padX = 8;
   const padY = 7;
   const boxH = padY * 2 + lines.length * lineHeight;
+  const safeWidth = Math.min(boxWidth, Math.max(140, width - margin.left - margin.right - 40));
+  let boxX = x2;
+  if (boxX + safeWidth > width - margin.left - margin.right) {
+    boxX = Math.max(0, width - margin.left - margin.right - safeWidth);
+  }
+  const boxY = Math.max(4, Math.min(y2 - boxH / 2, height - margin.top - margin.bottom - boxH - 4));
 
   g.append("path")
     .attr("class", "annotation-line")
-    .attr("d", `M${x1},${y1} L${x2},${y2}`);
-
-  const boxX = x2;
-  const boxY = y2 - boxH / 2;
+    .attr("d", `M${x1},${y1} L${boxX},${boxY + boxH / 2}`);
 
   g.append("rect")
     .attr("class", "annotation-box")
     .attr("x", boxX)
     .attr("y", boxY)
-    .attr("width", boxWidth)
+    .attr("width", safeWidth)
     .attr("height", boxH)
     .attr("rx", 5);
 
@@ -118,24 +166,28 @@ function drawAnnotation(g, { x1, y1, x2, y2, lines, boxWidth }) {
   });
 }
 
-function drawFuelLegend(g, x, y) {
+function drawFuelLegend(g, xPos, yPos) {
   const fuels = ["Gasoline", "Diesel", "Electricity"];
-  const legend = g.append("g").attr("class", "legend").attr("transform", `translate(${x},${y})`);
+  const gap = isNarrow() ? 88 : 110;
+  const legend = g
+    .append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${xPos},${yPos})`);
 
   fuels.forEach((fuel, i) => {
-    const row = legend.append("g").attr("transform", `translate(${i * 110}, 0)`);
+    const row = legend.append("g").attr("transform", `translate(${i * gap}, 0)`);
     row
       .append("rect")
       .attr("width", 12)
       .attr("height", 12)
       .attr("rx", 2)
       .attr("fill", fuelColors[fuel]);
-    row
-      .append("text")
-      .attr("x", 18)
-      .attr("y", 10)
-      .text(fuel);
+    row.append("text").attr("x", 18).attr("y", 10).text(fuel);
   });
+}
+
+function showEmptyState(message) {
+  d3.select("#emptyState").attr("hidden", null).text(message);
 }
 
 /* ---------- Scene 1: Fuel overview bars ---------- */
@@ -143,6 +195,7 @@ function renderSceneFuelOverview() {
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
   const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  fadeIn(g);
 
   const fuels = ["Gasoline", "Diesel", "Electricity"];
   const averages = fuels.map((fuel) => {
@@ -161,16 +214,18 @@ function renderSceneFuelOverview() {
     .nice()
     .range([innerH, 0]);
 
+  const tickCount = isNarrow() ? 4 : 6;
+
   g.append("g")
     .attr("class", "axis")
     .attr("transform", `translate(0,${innerH})`)
     .call(d3.axisBottom(x));
 
-  g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(6));
+  g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(tickCount));
 
   g.append("text")
     .attr("x", -innerH / 2)
-    .attr("y", -42)
+    .attr("y", -46)
     .attr("transform", "rotate(-90)")
     .attr("text-anchor", "middle")
     .attr("fill", "#5f6c7b")
@@ -220,13 +275,20 @@ function renderSceneFuelOverview() {
   });
 }
 
-/* ---------- Scene 2: Cylinders vs MPG ---------- */
+/* ---------- Scene 2: Cylinders vs efficiency ---------- */
 function renderSceneCylinders() {
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
   const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  fadeIn(g);
 
   const plotData = filteredData();
+  if (!plotData.length) {
+    showEmptyState(
+      'No configurations match these filters. Select "All" or reset the filters.'
+    );
+    return;
+  }
 
   const x = d3
     .scaleLinear()
@@ -239,12 +301,14 @@ function renderSceneCylinders() {
     .nice()
     .range([innerH, 0]);
 
+  const tickCount = isNarrow() ? 5 : 8;
+
   g.append("g")
     .attr("class", "axis")
     .attr("transform", `translate(0,${innerH})`)
-    .call(d3.axisBottom(x).ticks(8));
+    .call(d3.axisBottom(x).ticks(tickCount));
 
-  g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(7));
+  g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(isNarrow() ? 5 : 7));
 
   g.append("text")
     .attr("x", innerW / 2)
@@ -256,36 +320,41 @@ function renderSceneCylinders() {
 
   g.append("text")
     .attr("x", -innerH / 2)
-    .attr("y", -42)
+    .attr("y", -46)
     .attr("transform", "rotate(-90)")
     .attr("text-anchor", "middle")
     .attr("fill", "#5f6c7b")
     .attr("font-size", 12)
     .text(metricLabel());
 
-  // Trend line for non-electric when All or non-EV selected
   const trendSource = plotData.filter((d) => d.Fuel !== "Electricity");
   if (trendSource.length >= 2) {
     const xMean = d3.mean(trendSource, (d) => d.EngineCylinders);
     const yMean = d3.mean(trendSource, metricAccessor);
-    const slope =
-      d3.sum(trendSource, (d) => (d.EngineCylinders - xMean) * (metricAccessor(d) - yMean)) /
-      d3.sum(trendSource, (d) => (d.EngineCylinders - xMean) ** 2);
-    const intercept = yMean - slope * xMean;
-    const x0 = d3.min(trendSource, (d) => d.EngineCylinders);
-    const x1 = d3.max(trendSource, (d) => d.EngineCylinders);
+    const denom = d3.sum(trendSource, (d) => (d.EngineCylinders - xMean) ** 2);
+    if (denom > 0) {
+      const slope =
+        d3.sum(
+          trendSource,
+          (d) => (d.EngineCylinders - xMean) * (metricAccessor(d) - yMean)
+        ) / denom;
+      const intercept = yMean - slope * xMean;
+      const x0 = d3.min(trendSource, (d) => d.EngineCylinders);
+      const x1 = d3.max(trendSource, (d) => d.EngineCylinders);
 
-    g.append("line")
-      .attr("x1", x(x0))
-      .attr("y1", y(intercept + slope * x0))
-      .attr("x2", x(x1))
-      .attr("y2", y(intercept + slope * x1))
-      .attr("stroke", "#8896a6")
-      .attr("stroke-width", 2)
-      .attr("stroke-dasharray", "6 4");
+      g.append("line")
+        .attr("x1", x(x0))
+        .attr("y1", y(intercept + slope * x0))
+        .attr("x2", x(x1))
+        .attr("y2", y(intercept + slope * x1))
+        .attr("stroke", "#8896a6")
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", "6 4");
+    }
   }
 
-  g.selectAll(".dot")
+  const dots = g
+    .selectAll(".dot")
     .data(plotData)
     .join("circle")
     .attr("class", "dot")
@@ -295,18 +364,16 @@ function renderSceneCylinders() {
     .attr("fill", (d) => fuelColors[d.Fuel])
     .attr("opacity", 0.8)
     .attr("stroke", "#fff")
-    .attr("stroke-width", 1)
-    .on("mousemove", (event, d) => {
-      showTooltip(
-        event,
-        `<strong>${d.Make}</strong><br>Fuel: ${d.Fuel}<br>Cylinders: ${d.EngineCylinders}<br>Highway: ${d.AverageHighwayMPG}<br>City: ${d.AverageCityMPG}`
-      );
-    })
-    .on("mouseleave", hideTooltip);
+    .attr("stroke-width", 1);
 
-  drawFuelLegend(g, innerW - 320, -18);
+  bindDotHover(
+    dots,
+    (d) =>
+      `<strong>${d.Make}</strong><br>Fuel: ${d.Fuel}<br>Cylinders: ${d.EngineCylinders}<br>Highway MPG/MPGe: ${d.AverageHighwayMPG}<br>City MPG/MPGe: ${d.AverageCityMPG}`
+  );
 
-  // Annotation: EV cluster at 0 cylinders
+  drawFuelLegend(g, Math.max(0, innerW - (isNarrow() ? 270 : 320)), -18);
+
   const evs = plotData.filter((d) => d.Fuel === "Electricity");
   if (evs.length) {
     const evY = d3.mean(evs, metricAccessor);
@@ -319,7 +386,6 @@ function renderSceneCylinders() {
       lines: ["EVs at 0 cylinders", "top of the efficiency range"]
     });
   } else {
-    // When filtered away from EV, annotate the downward gasoline/diesel trend
     const highCyl = plotData
       .filter((d) => d.EngineCylinders >= 8)
       .sort((a, b) => metricAccessor(a) - metricAccessor(b))[0];
@@ -335,7 +401,6 @@ function renderSceneCylinders() {
     }
   }
 
-  // Second annotation for All view: inverse trend
   if (params.selectedFuel === "All") {
     drawAnnotation(g, {
       x1: x(10),
@@ -343,7 +408,10 @@ function renderSceneCylinders() {
       x2: x(6.5),
       y2: y(55),
       boxWidth: 188,
-      lines: ["Trend: more cylinders,", "lower highway/city MPG"]
+      lines: [
+        "Trend: more cylinders,",
+        `lower ${metricShort().toLowerCase()} MPG / MPGe`
+      ]
     });
   }
 }
@@ -353,19 +421,21 @@ function renderSceneExplore() {
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
   const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  fadeIn(g);
 
   const plotData = filteredData();
   const maxVal = d3.max(data, (d) => Math.max(d.AverageCityMPG, d.AverageHighwayMPG));
 
   const x = d3.scaleLinear().domain([0, maxVal * 1.05]).nice().range([0, innerW]);
   const y = d3.scaleLinear().domain([0, maxVal * 1.05]).nice().range([innerH, 0]);
+  const tickCount = isNarrow() ? 5 : 8;
 
   g.append("g")
     .attr("class", "axis")
     .attr("transform", `translate(0,${innerH})`)
-    .call(d3.axisBottom(x).ticks(8));
+    .call(d3.axisBottom(x).ticks(tickCount));
 
-  g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(8));
+  g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(tickCount));
 
   g.append("text")
     .attr("x", innerW / 2)
@@ -373,18 +443,17 @@ function renderSceneExplore() {
     .attr("text-anchor", "middle")
     .attr("fill", "#5f6c7b")
     .attr("font-size", 12)
-    .text("Average City MPG");
+    .text("City MPG / MPGe");
 
   g.append("text")
     .attr("x", -innerH / 2)
-    .attr("y", -42)
+    .attr("y", -46)
     .attr("transform", "rotate(-90)")
     .attr("text-anchor", "middle")
     .attr("fill", "#5f6c7b")
     .attr("font-size", 12)
-    .text("Average Highway MPG");
+    .text("Highway MPG / MPGe");
 
-  // Diagonal reference
   g.append("line")
     .attr("x1", x(0))
     .attr("y1", y(0))
@@ -393,7 +462,15 @@ function renderSceneExplore() {
     .attr("stroke", "#cfd6e0")
     .attr("stroke-dasharray", "4 4");
 
-  g.selectAll(".dot")
+  if (!plotData.length) {
+    showEmptyState(
+      'No configurations match these filters. Select "All" or reset the filters.'
+    );
+    return;
+  }
+
+  const dots = g
+    .selectAll(".dot")
     .data(plotData)
     .join("circle")
     .attr("class", "dot")
@@ -403,20 +480,18 @@ function renderSceneExplore() {
     .attr("fill", (d) => fuelColors[d.Fuel])
     .attr("opacity", 0.82)
     .attr("stroke", "#fff")
-    .attr("stroke-width", 1)
-    .on("mousemove", (event, d) => {
-      showTooltip(
-        event,
-        `<strong>${d.Make}</strong><br>Fuel: ${d.Fuel}<br>Cylinders: ${d.EngineCylinders}<br>City: ${d.AverageCityMPG}<br>Highway: ${d.AverageHighwayMPG}`
-      );
-    })
-    .on("mouseleave", hideTooltip);
+    .attr("stroke-width", 1);
+
+  bindDotHover(
+    dots,
+    (d) =>
+      `<strong>${d.Make}</strong><br>Fuel: ${d.Fuel}<br>Cylinders: ${d.EngineCylinders}<br>City MPG/MPGe: ${d.AverageCityMPG}<br>Highway MPG/MPGe: ${d.AverageHighwayMPG}`
+  );
 
   drawFuelLegend(g, 8, -18);
 
   const evs = plotData.filter((d) => d.Fuel === "Electricity");
   if (evs.length) {
-    // Anchor on the leftmost EV point; place the label in the empty mid-chart gap
     const anchor = evs.slice().sort((a, b) => a.AverageCityMPG - b.AverageCityMPG)[0];
     drawAnnotation(g, {
       x1: x(anchor.AverageCityMPG),
@@ -426,11 +501,10 @@ function renderSceneExplore() {
       boxWidth: 196,
       lines: [
         "Electric cluster: high city",
-        "and highway MPG together"
+        "and highway MPG / MPGe"
       ]
     });
-  } else if (plotData.length) {
-    // Point at the densest area, but park the label in empty upper-right space
+  } else {
     const focus = plotData.reduce((best, d) =>
       d.AverageCityMPG + d.AverageHighwayMPG >
       best.AverageCityMPG + best.AverageHighwayMPG
@@ -449,12 +523,18 @@ function renderSceneExplore() {
 }
 
 /* ---------- Controls + scene orchestration ---------- */
+function resetExploreFilters() {
+  params.selectedFuel = "All";
+  params.selectedMake = "All";
+  update();
+}
+
 function renderControls() {
   const controls = d3.select("#controls");
   controls.html("");
 
   if (params.sceneIndex === 0) {
-    controls.append("label").text("MPG metric:");
+    controls.append("label").text("Efficiency metric:");
     ["highway", "city"].forEach((m) => {
       controls
         .append("button")
@@ -483,7 +563,7 @@ function renderControls() {
   });
 
   if (params.sceneIndex === 1) {
-    controls.append("label").style("margin-left", "8px").text("MPG metric:");
+    controls.append("label").style("margin-left", "8px").text("Efficiency metric:");
     ["highway", "city"].forEach((m) => {
       controls
         .append("button")
@@ -513,6 +593,19 @@ function renderControls() {
       params.selectedMake = event.target.value;
       update();
     });
+
+    controls
+      .append("button")
+      .attr("type", "button")
+      .attr("class", "reset-btn")
+      .text("Reset Filters")
+      .on("click", resetExploreFilters);
+
+    const shown = filteredData().length;
+    controls
+      .append("p")
+      .attr("class", "filter-status")
+      .text(`Showing ${shown} of ${data.length} configurations`);
   }
 }
 
@@ -526,29 +619,39 @@ function renderScene() {
 }
 
 function renderMeta() {
-  const scene = scenes[params.sceneIndex];
-  d3.select("#sceneLabel").text(`Scene ${params.sceneIndex + 1} of ${scenes.length}`);
+  const scene = getSceneMeta();
+  d3.select("#sceneLabel").text(`Scene ${params.sceneIndex + 1} of 3`);
   d3.select("#sceneTitle").text(scene.title);
   d3.select("#sceneDescription").text(scene.description);
   d3.select("#interactionHint").text(scene.hint);
 
+  const takeaway = d3.select("#takeaway");
+  if (params.sceneIndex === 2) {
+    takeaway
+      .attr("hidden", null)
+      .html(
+        "<strong>Key takeaway:</strong> Fuel type creates the clearest separation in efficiency. Among gasoline and diesel vehicles, configurations with more cylinders usually have lower MPG."
+      );
+  } else {
+    takeaway.attr("hidden", true).html("");
+  }
+
   d3.select("#prevBtn").property("disabled", params.sceneIndex === 0);
-  d3.select("#nextBtn").property(
-    "disabled",
-    params.sceneIndex === scenes.length - 1
-  );
+  d3.select("#nextBtn").property("disabled", params.sceneIndex === 2);
 
   d3.select("#stepIndicators")
     .selectAll("button")
-    .data(scenes)
+    .data(stepLabels)
     .join("button")
     .attr("type", "button")
     .attr("class", (d, i) => `step-btn${i === params.sceneIndex ? " active" : ""}`)
-    .attr("aria-label", (d, i) => `Go to scene ${i + 1}`)
-    .text((d, i) => i + 1)
+    .attr("aria-label", (d, i) => `Go to scene ${i + 1}: ${d}`)
+    .html(
+      (d, i) =>
+        `<span class="step-num">${i + 1}</span><span class="step-label">${d}</span>`
+    )
     .on("click", (event, d) => {
-      params.sceneIndex = scenes.indexOf(d);
-      // Reset explore filters when jumping scenes keeps story readable
+      params.sceneIndex = stepLabels.indexOf(d);
       if (params.sceneIndex !== 2) params.selectedMake = "All";
       update();
     });
@@ -570,7 +673,7 @@ function bindTriggers() {
   });
 
   d3.select("#nextBtn").on("click", () => {
-    if (params.sceneIndex < scenes.length - 1) {
+    if (params.sceneIndex < 2) {
       params.sceneIndex += 1;
       update();
     }
@@ -587,14 +690,16 @@ d3.csv("cars2017.csv", (d) => ({
   EngineCylinders: +d.EngineCylinders,
   AverageHighwayMPG: +d.AverageHighwayMPG,
   AverageCityMPG: +d.AverageCityMPG
-})).then((rows) => {
-  data = rows;
-  bindTriggers();
-  update();
-}).catch((err) => {
-  d3.select("#sceneTitle").text("Could not load cars2017.csv");
-  d3.select("#sceneDescription").text(
-    "Serve this folder over HTTP (for example GitHub Pages or a local static server). Opening index.html as a file may block CSV loading."
-  );
-  console.error(err);
-});
+}))
+  .then((rows) => {
+    data = rows;
+    bindTriggers();
+    update();
+  })
+  .catch((err) => {
+    d3.select("#sceneTitle").text("Could not load cars2017.csv");
+    d3.select("#sceneDescription").text(
+      "Serve this folder over HTTP (for example GitHub Pages or a local static server). Opening index.html as a file may block CSV loading."
+    );
+    console.error(err);
+  });
